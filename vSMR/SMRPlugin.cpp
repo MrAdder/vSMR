@@ -173,7 +173,7 @@ void pollMessages(void * arg) {
 					AircraftDemandingClearance.push_back(message.from);
 				}
 			}
-			else if (message.message.find("WILCO") != std::string::npos || message.message.find("ROGER") != std::string::npos || message.message.find("RGR") != std::string::npos) {
+			else if (message.message.find("WILCO") != std::string::npos || message.message.find("ROGER") != std::string::npos || message.message.find("RGR") != std::string::npos || message.message.find("ACCEPT") != std::string::npos) {
 				if (std::find(AircraftMessageSent.begin(), AircraftMessageSent.end(), message.from) != AircraftMessageSent.end()) {
 					AircraftWilco.push_back(message.from);
 				}
@@ -436,6 +436,7 @@ void CSMRPlugin::OnFunctionCall(int FunctionId, const char * sItemString, POINT 
 		AddPopupListElement("Message", "", TAG_FUNC_DATALINK_MESSAGE, false, 2, false, true);
 		AddPopupListElement("Standby", "", TAG_FUNC_DATALINK_STBY, false, 2, menu_is_datalink);
 		AddPopupListElement("Voice", "", TAG_FUNC_DATALINK_VOICE, false, 2, menu_is_datalink);
+		AddPopupListElement("NoFPL", "", TAG_FUNC_DATALINK_NOFPL, false, 2, menu_is_datalink);
 		AddPopupListElement("Reset", "", TAG_FUNC_DATALINK_RESET, false, 2, false, true);
 		AddPopupListElement("Close", "", EuroScopePlugIn::TAG_ITEM_FUNCTION_NO, false, 2, false, true);
 	}
@@ -509,6 +510,27 @@ void CSMRPlugin::OnFunctionCall(int FunctionId, const char * sItemString, POINT 
 
 		if (FlightPlan.IsValid()) {
 			tmessage = "UNABLE CALL ON FREQ";
+			ttype = "CPDLC";
+			tdest = FlightPlan.GetCallsign();
+
+			if (std::find(AircraftDemandingClearance.begin(), AircraftDemandingClearance.end(), DatalinkToSend.callsign.c_str()) != AircraftDemandingClearance.end()) {
+				AircraftDemandingClearance.erase(std::remove(AircraftDemandingClearance.begin(), AircraftDemandingClearance.end(), FlightPlan.GetCallsign()), AircraftDemandingClearance.end());
+			}
+			if (std::find(AircraftStandby.begin(), AircraftStandby.end(), DatalinkToSend.callsign.c_str()) != AircraftStandby.end()) {
+				AircraftStandby.erase(std::remove(AircraftStandby.begin(), AircraftStandby.end(), FlightPlan.GetCallsign()), AircraftDemandingClearance.end());
+			}
+			PendingMessages.erase(DatalinkToSend.callsign);
+
+			_beginthread(sendDatalinkMessage, 0, NULL);
+		}
+
+	}
+
+	if (FunctionId == TAG_FUNC_DATALINK_NOFPL) {
+		CFlightPlan FlightPlan = FlightPlanSelectASEL();
+
+		if (FlightPlan.GetFlightPlanData().GetRoute() == NULL) {
+			tmessage = "FLIGHT PLAN NOT HELD @REVERT TO VOICE PROCEDURES";
 			ttype = "CPDLC";
 			tdest = FlightPlan.GetCallsign();
 
@@ -627,7 +649,7 @@ void CSMRPlugin::OnTimer(int Counter)
 		HoppieConnected = false;
 	}
 
-	if (((clock() - timer) / CLOCKS_PER_SEC) > 10 && HoppieConnected) {
+	if (((clock() - timer) / CLOCKS_PER_SEC) > 40 && HoppieConnected) {
 		_beginthread(pollMessages, 0, NULL);
 		timer = clock();
 	}
