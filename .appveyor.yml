@@ -15,8 +15,7 @@ version: 1.6.{build}
 branches:
   # whitelist
   only:
-    - master
-
+    - wip-areas
   # blacklist
   except:
     - gh-pages
