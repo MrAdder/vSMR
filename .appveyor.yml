@@ -15,7 +15,7 @@ version: 1.6.{build}
 branches:
   # whitelist
   only:
-    - dev
+    - master
 
   # blacklist
   except:
