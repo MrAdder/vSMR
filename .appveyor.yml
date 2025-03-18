@@ -16,7 +16,6 @@ branches:
   # whitelist
   only:
     - wip-areas
-
   # blacklist
   except:
     - gh-pages
