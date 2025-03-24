@@ -547,7 +547,7 @@ void CSMRPlugin::OnFunctionCall(int FunctionId, const char * sItemString, POINT 
 		CFlightPlan FlightPlan = FlightPlanSelectASEL();
 
 		if (FlightPlan.GetFlightPlanData().GetRoute() == NULL) {
-			tmessage = "FLIGHT PLAN NOT HELD @REVERT TO VOICE PROCEDURES";
+			tmessage = "FLIGHT PLAN NOT HELD";
 			ttype = "CPDLC";
 			tdest = FlightPlan.GetCallsign();
 
