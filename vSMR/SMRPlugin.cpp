@@ -264,6 +264,24 @@ void sendDatalinkClearance(void * arg) {
 	}
 };
 
+void checkAndSendCPDLCMessage(CFlightPlan FlightPlan) {
+	if (FlightPlan.GetFlightPlanData().GetRoute() == NULL) {
+		string tmessage = "FLIGHT PLAN NOT HELD";
+		string ttype = "CPDLC";
+		string tdest = FlightPlan.GetCallsign();
+
+		if (std::find(AircraftDemandingClearance.begin(), AircraftDemandingClearance.end(), FlightPlan.GetCallsign()) != AircraftDemandingClearance.end()) {
+			AircraftDemandingClearance.erase(std::remove(AircraftDemandingClearance.begin(), AircraftDemandingClearance.end(), FlightPlan.GetCallsign()), AircraftDemandingClearance.end());
+		}
+		if (std::find(AircraftStandby.begin(), AircraftStandby.end(), FlightPlan.GetCallsign()) != AircraftStandby.end()) {
+			AircraftStandby.erase(std::remove(AircraftStandby.begin(), AircraftStandby.end(), FlightPlan.GetCallsign()), AircraftStandby.end());
+		}
+		PendingMessages.erase(FlightPlan.GetCallsign());
+
+		_beginthread(sendDatalinkMessage, 0, NULL);
+	}
+}
+
 CSMRPlugin::CSMRPlugin(void) :CPlugIn(EuroScopePlugIn::COMPATIBILITY_CODE, MY_PLUGIN_NAME, MY_PLUGIN_VERSION, MY_PLUGIN_DEVELOPER, MY_PLUGIN_COPYRIGHT)
 {
 
