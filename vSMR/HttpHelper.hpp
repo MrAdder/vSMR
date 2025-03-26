@@ -2,6 +2,7 @@
 #include <string>
 #include <curl\curl.h>
 #include <curl\easy.h>
+#include "Logger.h"
 
 class HttpHelper
 {

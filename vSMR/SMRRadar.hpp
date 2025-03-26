@@ -21,6 +21,7 @@
 #include <filesystem>
 #include <iostream>
 #include "AircraftTypeLookup.hpp"
+#include "HttpHelper.hpp"
 
 using namespace std;
 using namespace Gdiplus;
@@ -90,6 +91,7 @@ public:
 	map<string, RECT> ListAreas;
 
 	map<int, bool> appWindowDisplays;
+	bool wipAreasActive = true;
 
 	map<string, CRect> tagAreas;
 	map<string, double> TagAngles;
@@ -138,6 +140,8 @@ public:
 	multimap<string, string> DistanceTools;
 	bool DistanceToolActive = false;
 	pair<string, string> ActiveDistance;
+
+	vector<vector<CPosition>> wipAreas;
 
 	//----
 	// Tag types
