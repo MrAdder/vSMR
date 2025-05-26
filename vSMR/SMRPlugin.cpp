@@ -79,6 +79,14 @@ vector<CSMRRadar *> RadarScreensOpened;
 
 void datalinkLogin(void *arg)
 {
+
+	// Check if logonCode is empty or only whitespace
+	if (logonCode.empty() || std::all_of(logonCode.begin(), logonCode.end(), isspace)) {
+		DisplayUserMessage("CPDLC", "Error", "Logon code is empty. Please set your CPDLC password in the settings.", true, true, false, true, false);
+		isConnecting = false;
+		return;
+	}
+
 	string raw;
 	string url = baseUrlDatalink;
 	url += "?logon=";
@@ -106,6 +114,7 @@ void datalinkLogin(void *arg)
 		}
 		else
 		{
+			DisplayUserMessage("CPDLC", "Error", "Maximum login retries reached. Please check your logon code and network connection.", true, true, false, true, false);
 			loginRetryCount = 0; // Reset after giving up
 			nextLoginRetryTime = 0;
 		}
@@ -723,24 +732,30 @@ void CSMRPlugin::OnTimer(int Counter)
 	}
 
 	// Retry login
-	if (!HoppieConnected && nextLoginRetryTime > 0 && time(NULL) >= nextLoginRetryTime)
+	if (ControllerMyself().IsController() && !HoppieConnected && nextLoginRetryTime > 0 && time(NULL) >= nextLoginRetryTime)
 	{
 		isConnecting = true;
 		_beginthread(datalinkLogin, 0, NULL);
 		nextLoginRetryTime = 0; // Prevent multiple triggers
 	}
-
+	else {
+		DisplayUserMessage("CPDLC", "Error", "You are not logged in as a controller!", true, true, false, true, false);
+	}
 	
 	//Auto connection
-	if (AutoConnect && !HoppieConnected && !isConnecting)
+	if (ControllerMyself().IsController() && AutoConnect && !HoppieConnected && !isConnecting)
 	{
-		isConnecting = true;
-		_beginthread(datalinkLogin, 0, NULL);
+		if (loginRetryCount > 0 && nextLoginRetryTime > 0 && time(NULL) < nextLoginRetryTime)
+		{
+			return; // Wait for the next retry time
+		}
+		else {
+			isConnecting = true;
+			_beginthread(datalinkLogin, 0, NULL);
+		}
 	}
-	else if (!AutoConnect && HoppieConnected)
-	{
-		HoppieConnected = false;
-		DisplayUserMessage("CPDLC", "Server", "Please run .smr connect to login!", true, true, false, true, false);
+	else {
+		DisplayUserMessage("CPDLC", "Error", "You are not logged in as a controller!", true, true, false, true, false);
 	}
 
 	if (((clock() - timer) / CLOCKS_PER_SEC) > 10 && HoppieConnected)
