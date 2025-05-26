@@ -9,17 +9,7 @@
 #---------------------------------#
 
 # version format
-version: 1.7.{build}
-
-# branches to build
-branches:
-  # whitelist
-  only:
-    - main
-
-  # blacklist
-  except:
-    - gh-pages
+version: 1.6.{build}
 
 # Maximum number of concurrent jobs for the project
 max_jobs: 1
@@ -59,3 +49,5 @@ after_build:
 
 artifacts:
   - path: vSMR-nightly.zip
+
+
