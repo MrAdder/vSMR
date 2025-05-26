@@ -281,8 +281,8 @@ CSMRPlugin::CSMRPlugin(void) :CPlugIn(EuroScopePlugIn::COMPATIBILITY_CODE, MY_PL
 
 	messageId = rand() % 10000 + 1789;
 	
-		srand(time(NULL)); // Seed the RNG once at the start
-		initializeRandomInterval();
+	srand(time(NULL)); // Seed the RNG once at the start
+	initializeRandomInterval();
 	
 	timer = clock();
 
