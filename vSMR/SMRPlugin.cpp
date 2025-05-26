@@ -69,7 +69,7 @@ vector<CSMRRadar*> RadarScreensOpened;
 
 
 void initializeRandomInterval() {
-    randomInterval = 45 + rand() % 31; // 45 to 75 seconds
+	randomInterval = 45 + rand() % 31; // 45 to 75 seconds
 }
 
 void datalinkLogin(void * arg) {
@@ -281,8 +281,8 @@ CSMRPlugin::CSMRPlugin(void) :CPlugIn(EuroScopePlugIn::COMPATIBILITY_CODE, MY_PL
 
 	messageId = rand() % 10000 + 1789;
 	
-        srand(time(NULL)); // Seed the RNG once at the start
-        initializeRandomInterval();
+		srand(time(NULL)); // Seed the RNG once at the start
+		initializeRandomInterval();
 	
 	timer = clock();
 
