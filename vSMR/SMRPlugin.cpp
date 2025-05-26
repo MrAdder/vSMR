@@ -16,6 +16,11 @@ HttpHelper * httpHelper = NULL;
 bool BLINK = false;
 
 bool PlaySoundClr = false;
+bool AutoConnect = false;
+
+clock_t retryTimer = 0;
+clock_t connectTimer = 0;
+bool isConnecting = false;
 
 struct DatalinkPacket {
 	string callsign;
@@ -56,6 +61,12 @@ int randomInterval = 0;
 
 
 clock_t timer;
+
+int randomInterval = 0;
+
+void initializeRandomInterval() {
+    randomInterval = 45 + rand() % 31; // 45 to 75 seconds
+}
 
 string myfrequency;
 
@@ -265,6 +276,24 @@ void sendDatalinkClearance(void * arg) {
 	}
 };
 
+void checkAndSendCPDLCMessage(CFlightPlan FlightPlan) {
+	if (FlightPlan.GetFlightPlanData().GetRoute() == NULL) {
+		string tmessage = "FLIGHT PLAN NOT HELD";
+		string ttype = "CPDLC";
+		string tdest = FlightPlan.GetCallsign();
+
+		if (std::find(AircraftDemandingClearance.begin(), AircraftDemandingClearance.end(), FlightPlan.GetCallsign()) != AircraftDemandingClearance.end()) {
+			AircraftDemandingClearance.erase(std::remove(AircraftDemandingClearance.begin(), AircraftDemandingClearance.end(), FlightPlan.GetCallsign()), AircraftDemandingClearance.end());
+		}
+		if (std::find(AircraftStandby.begin(), AircraftStandby.end(), FlightPlan.GetCallsign()) != AircraftStandby.end()) {
+			AircraftStandby.erase(std::remove(AircraftStandby.begin(), AircraftStandby.end(), FlightPlan.GetCallsign()), AircraftStandby.end());
+		}
+		PendingMessages.erase(FlightPlan.GetCallsign());
+
+		_beginthread(sendDatalinkMessage, 0, NULL);
+	}
+}
+
 CSMRPlugin::CSMRPlugin(void) :CPlugIn(EuroScopePlugIn::COMPATIBILITY_CODE, MY_PLUGIN_NAME, MY_PLUGIN_VERSION, MY_PLUGIN_DEVELOPER, MY_PLUGIN_COPYRIGHT)
 {
 
@@ -281,7 +310,7 @@ CSMRPlugin::CSMRPlugin(void) :CPlugIn(EuroScopePlugIn::COMPATIBILITY_CODE, MY_PL
 
 	messageId = rand() % 10000 + 1789;
 
-        srand(time(NULL));
+  srand(time(NULL));
 	timer = clock();
 	initializeRandomInterval();
 
@@ -296,6 +325,8 @@ CSMRPlugin::CSMRPlugin(void) :CPlugIn(EuroScopePlugIn::COMPATIBILITY_CODE, MY_PL
 		logonCode = p_value;
 	if ((p_value = GetDataFromSettings("cpdlc_sound")) != NULL)
 		PlaySoundClr = bool(!!atoi(p_value));
+	if ((p_value = GetDataFromSettings("cpdlc_auto")) != NULL)
+		AutoConnect = bool(!!atoi(p_value));
 
 	char DllPathFile[_MAX_PATH];
 	string DllPath;
@@ -315,6 +346,10 @@ CSMRPlugin::~CSMRPlugin()
 	if (PlaySoundClr)
 		temp = 1;
 	SaveDataToSettings("cpdlc_sound", "Play sound on clearance request", std::to_string(temp).c_str());
+	int temp2 = 0;
+	if (AutoConnect)
+		temp2 = 1;
+	SaveDataToSettings("cpdlc_auto", "Automatically Connect and Retry if in use", std::to_string(temp).c_str());
 
 	try
 	{
@@ -362,6 +397,7 @@ bool CSMRPlugin::OnCompileCommand(const char * sCommandLine) {
 		dia.m_Logon = logonCallsign.c_str();
 		dia.m_Password = logonCode.c_str();
 		dia.m_Sound = int(PlaySoundClr);
+		dia.m_Auto = int(AutoConnect);
 
 		if (dia.DoModal() != IDOK)
 			return true;
@@ -369,12 +405,17 @@ bool CSMRPlugin::OnCompileCommand(const char * sCommandLine) {
 		logonCallsign = dia.m_Logon;
 		logonCode = dia.m_Password;
 		PlaySoundClr = bool(!!dia.m_Sound);
+		AutoConnect = bool(!!dia.m_Auto);
 		SaveDataToSettings("cpdlc_logon", "The CPDLC logon callsign", logonCallsign.c_str());
 		SaveDataToSettings("cpdlc_password", "The CPDLC logon password", logonCode.c_str());
 		int temp = 0;
 		if (PlaySoundClr)
 			temp = 1;
 		SaveDataToSettings("cpdlc_sound", "Play sound on clearance request", std::to_string(temp).c_str());
+		int temp2 = 0;
+		if (AutoConnect)
+			temp2 = 1;
+		SaveDataToSettings("cpdlc_auto", "Automatically Connect and Retry if in use", std::to_string(temp).c_str());
 
 		return true;
 	}
@@ -444,6 +485,7 @@ void CSMRPlugin::OnFunctionCall(int FunctionId, const char * sItemString, POINT 
 		AddPopupListElement("Message", "", TAG_FUNC_DATALINK_MESSAGE, false, 2, false, true);
 		AddPopupListElement("Standby", "", TAG_FUNC_DATALINK_STBY, false, 2, menu_is_datalink);
 		AddPopupListElement("Voice", "", TAG_FUNC_DATALINK_VOICE, false, 2, menu_is_datalink);
+		AddPopupListElement("NoFPL", "", TAG_FUNC_DATALINK_NOFPL, false, 2, menu_is_datalink);
 		AddPopupListElement("Reset", "", TAG_FUNC_DATALINK_RESET, false, 2, false, true);
 		AddPopupListElement("Close", "", EuroScopePlugIn::TAG_ITEM_FUNCTION_NO, false, 2, false, true);
 	}
@@ -517,6 +559,27 @@ void CSMRPlugin::OnFunctionCall(int FunctionId, const char * sItemString, POINT 
 
 		if (FlightPlan.IsValid()) {
 			tmessage = "UNABLE CALL ON FREQ";
+			ttype = "CPDLC";
+			tdest = FlightPlan.GetCallsign();
+
+			if (std::find(AircraftDemandingClearance.begin(), AircraftDemandingClearance.end(), DatalinkToSend.callsign.c_str()) != AircraftDemandingClearance.end()) {
+				AircraftDemandingClearance.erase(std::remove(AircraftDemandingClearance.begin(), AircraftDemandingClearance.end(), FlightPlan.GetCallsign()), AircraftDemandingClearance.end());
+			}
+			if (std::find(AircraftStandby.begin(), AircraftStandby.end(), DatalinkToSend.callsign.c_str()) != AircraftStandby.end()) {
+				AircraftStandby.erase(std::remove(AircraftStandby.begin(), AircraftStandby.end(), FlightPlan.GetCallsign()), AircraftDemandingClearance.end());
+			}
+			PendingMessages.erase(DatalinkToSend.callsign);
+
+			_beginthread(sendDatalinkMessage, 0, NULL);
+		}
+
+	}
+
+	if (FunctionId == TAG_FUNC_DATALINK_NOFPL) {
+		CFlightPlan FlightPlan = FlightPlanSelectASEL();
+
+		if (FlightPlan.GetFlightPlanData().GetRoute() == NULL) {
+			tmessage = "FLIGHT PLAN NOT HELD";
 			ttype = "CPDLC";
 			tdest = FlightPlan.GetCallsign();
 
@@ -623,11 +686,36 @@ void CSMRPlugin::OnTimer(int Counter)
 	if (HoppieConnected && ConnectionMessage) {
 		DisplayUserMessage("CPDLC", "Server", "Logged in!", true, true, false, true, false);
 		ConnectionMessage = false;
+		// Reset the retry timer once connected
+		retryTimer = 0;
 	}
 
 	if (FailedToConnectMessage) {
 		DisplayUserMessage("CPDLC", "Server", "Could not login! Callsign probably in use.", true, true, false, true, false);
 		FailedToConnectMessage = false;
+	}
+
+	if (!HoppieConnected && GetConnectionType() && FailedToConnectMessage == true != CONNECTION_TYPE_NO && ControllerMyself().IsController() && FailedToConnectMessage == false) {
+		// Attempt to connect every 2 minutes (120 seconds)
+		if (((clock() - retryTimer) / CLOCKS_PER_SEC) > 120) {
+			_beginthread(datalinkLogin, 0, NULL);
+			retryTimer = clock();
+		}
+	}
+
+	if (!HoppieConnected && GetConnectionType() != CONNECTION_TYPE_NO && ControllerMyself().IsController() && AutoConnect == true) {
+		if (!isConnecting) {
+			// Start the connect timer
+			connectTimer = clock();
+			isConnecting = true;
+		}
+		else {
+			// Check if 10 seconds have passed since connecting
+			if (((clock() - connectTimer) / CLOCKS_PER_SEC) > 10) {
+				_beginthread(datalinkLogin, 0, NULL);
+				isConnecting = false;
+			}
+		}
 	}
 
 	if (HoppieConnected && GetConnectionType() == CONNECTION_TYPE_NO) {
