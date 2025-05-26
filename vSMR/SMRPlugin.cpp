@@ -79,14 +79,6 @@ vector<CSMRRadar *> RadarScreensOpened;
 
 void datalinkLogin(void *arg)
 {
-
-	// Check if logonCode is empty or only whitespace
-	if (logonCode.empty() || std::all_of(logonCode.begin(), logonCode.end(), isspace)) {
-		DisplayUserMessage("CPDLC", "Error", "Logon code is empty. Please set your CPDLC password in the settings.", true, true, false, true, false);
-		isConnecting = false;
-		return;
-	}
-
 	string raw;
 	string url = baseUrlDatalink;
 	url += "?logon=";
@@ -114,7 +106,6 @@ void datalinkLogin(void *arg)
 		}
 		else
 		{
-			DisplayUserMessage("CPDLC", "Error", "Maximum login retries reached. Please check your logon code and network connection.", true, true, false, true, false);
 			loginRetryCount = 0; // Reset after giving up
 			nextLoginRetryTime = 0;
 		}
@@ -389,7 +380,17 @@ bool CSMRPlugin::OnCompileCommand(const char *sCommandLine)
 		{
 			if (!HoppieConnected)
 			{
-				_beginthread(datalinkLogin, 0, NULL);
+				if (isConnecting)
+				{
+					DisplayUserMessage("CPDLC", "Server", "Already trying to connect!", true, true, false, true, false);
+				}
+				else if (nextLoginRetryTime > 0 && time(NULL) < nextLoginRetryTime)
+				{
+					DisplayUserMessage("CPDLC", "Server", "Waiting for next retry time!", true, true, false, true, false);
+				}
+				else {
+					_beginthread(datalinkLogin, 0, NULL);
+				}
 			}
 			else
 			{
@@ -731,6 +732,13 @@ void CSMRPlugin::OnTimer(int Counter)
 		HoppieConnected = false;
 	}
 
+	// Check if logonCode is empty or only whitespace
+	if (ControllerMyself().IsController() && logonCode.empty() || std::all_of(logonCode.begin(), logonCode.end(), isspace)) {
+		DisplayUserMessage("CPDLC", "Error", "Logon code is empty. Please set your CPDLC password in the settings.", true, true, false, true, false);
+		isConnecting = false;
+		return;
+	}
+
 	// Retry login
 	if (ControllerMyself().IsController() && !HoppieConnected && nextLoginRetryTime > 0 && time(NULL) >= nextLoginRetryTime)
 	{
@@ -738,7 +746,16 @@ void CSMRPlugin::OnTimer(int Counter)
 		_beginthread(datalinkLogin, 0, NULL);
 		nextLoginRetryTime = 0; // Prevent multiple triggers
 	}
-	else {
+	else if (maxLoginRetries > 0 && loginRetryCount >= maxLoginRetries && nextLoginRetryTime == 0)
+	{
+		DisplayUserMessage("CPDLC", "Error", "Maximum login retries reached. Please check your settings.", true, true, false, true, false);
+		HoppieConnected = false;
+		loginRetryCount = 0; // Reset after giving up
+		nextLoginRetryTime = 0; // Reset next retry time
+		isConnecting = false;
+		return;
+	}
+	{
 		DisplayUserMessage("CPDLC", "Error", "You are not logged in as a controller!", true, true, false, true, false);
 	}
 	
