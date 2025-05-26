@@ -57,16 +57,8 @@ string tdest;
 string ttype;
 
 int messageId = 0;
-int randomInterval = 0;
-
 
 clock_t timer;
-
-int randomInterval = 0;
-
-void initializeRandomInterval() {
-    randomInterval = 45 + rand() % 31; // 45 to 75 seconds
-}
 
 string myfrequency;
 
@@ -310,9 +302,7 @@ CSMRPlugin::CSMRPlugin(void) :CPlugIn(EuroScopePlugIn::COMPATIBILITY_CODE, MY_PL
 
 	messageId = rand() % 10000 + 1789;
 
-  srand(time(NULL));
 	timer = clock();
-	initializeRandomInterval();
 
 	if (httpHelper == NULL)
 		httpHelper = new HttpHelper();
