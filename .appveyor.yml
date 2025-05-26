@@ -11,6 +11,13 @@
 # version format
 version: 1.6.{build}
 
+branches:
+  only:
+  - main
+  - feat-autoconnect-retry
+  - polling-rate
+  - feat-auto-cpdlc-nofpl
+
 # Maximum number of concurrent jobs for the project
 max_jobs: 1
 
