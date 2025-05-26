@@ -17,6 +17,10 @@ bool BLINK = false;
 
 bool PlaySoundClr = false;
 
+// Auto Connect
+bool AutoConnect = false;
+bool isConnecting = false;
+
 struct DatalinkPacket {
 	string callsign;
 	string destination;
@@ -52,6 +56,12 @@ string tdest;
 string ttype;
 
 int messageId = 0;
+
+int loginRetryCount = 0;
+const int maxLoginRetries = 5;
+const int loginRetryDelaySec = 120; // 2 minutes not to spam Hoppie server
+time_t nextLoginRetryTime = 0;
+
 int randomInterval = 0;
 
 clock_t timer;
@@ -85,9 +95,21 @@ void datalinkLogin(void * arg) {
 	if (startsWith("ok", raw.c_str())) {
 		HoppieConnected = true;
 		ConnectionMessage = true;
+		loginRetryCount = 0;
 	}
 	else {
 		FailedToConnectMessage = true;
+		loginRetryCount++;
+		if (loginRetryCount <= maxLoginRetries)
+		{
+			// Set next retry time
+			nextLoginRetryTime = time(NULL) + loginRetryDelaySec;
+		}
+		else
+		{
+			loginRetryCount = 0; // Reset after giving up
+			nextLoginRetryTime = 0;
+		}
 	}
 };
 
@@ -297,6 +319,8 @@ CSMRPlugin::CSMRPlugin(void) :CPlugIn(EuroScopePlugIn::COMPATIBILITY_CODE, MY_PL
 		logonCode = p_value;
 	if ((p_value = GetDataFromSettings("cpdlc_sound")) != NULL)
 		PlaySoundClr = bool(!!atoi(p_value));
+	if ((p_value = GetDataFromSettings("cpdlc_autoconnect")) != NULL)
+		AutoConnect = bool(!!atoi(p_value));
 
 	char DllPathFile[_MAX_PATH];
 	string DllPath;
@@ -316,6 +340,7 @@ CSMRPlugin::~CSMRPlugin()
 	if (PlaySoundClr)
 		temp = 1;
 	SaveDataToSettings("cpdlc_sound", "Play sound on clearance request", std::to_string(temp).c_str());
+	SaveDataToSettings("cpdlc_autoconnect", "Automatically connect to Hoppie server", std::to_string(AutoConnect).c_str());
 
 	try
 	{
@@ -363,6 +388,7 @@ bool CSMRPlugin::OnCompileCommand(const char * sCommandLine) {
 		dia.m_Logon = logonCallsign.c_str();
 		dia.m_Password = logonCode.c_str();
 		dia.m_Sound = int(PlaySoundClr);
+		dia.m_AutoLogon = int(AutoConnect);
 
 		if (dia.DoModal() != IDOK)
 			return true;
@@ -370,12 +396,14 @@ bool CSMRPlugin::OnCompileCommand(const char * sCommandLine) {
 		logonCallsign = dia.m_Logon;
 		logonCode = dia.m_Password;
 		PlaySoundClr = bool(!!dia.m_Sound);
+		AutoConnect = bool(!!dia.m_AutoLogon);
 		SaveDataToSettings("cpdlc_logon", "The CPDLC logon callsign", logonCallsign.c_str());
 		SaveDataToSettings("cpdlc_password", "The CPDLC logon password", logonCode.c_str());
 		int temp = 0;
 		if (PlaySoundClr)
 			temp = 1;
 		SaveDataToSettings("cpdlc_sound", "Play sound on clearance request", std::to_string(temp).c_str());
+		SaveDataToSettings("cpdlc_autoconnect", "Automatically connect to Hoppie server", std::to_string(AutoConnect).c_str());
 
 		return true;
 	}
@@ -634,6 +662,24 @@ void CSMRPlugin::OnTimer(int Counter)
 	if (HoppieConnected && GetConnectionType() == CONNECTION_TYPE_NO) {
 		DisplayUserMessage("CPDLC", "Server", "Automatically logged off!", true, true, false, true, false);
 		HoppieConnected = false;
+	}
+
+	// Retry login
+	if (!HoppieConnected && nextLoginRetryTime > 0 && time(NULL) >= nextLoginRetryTime)
+	{
+		_beginthread(datalinkLogin, 0, NULL);
+		nextLoginRetryTime = 0; // Prevent multiple triggers
+	}
+
+	if (AutoConnect && !HoppieConnected && !isConnecting)
+	{
+		isConnecting = true;
+		_beginthread(datalinkLogin, 0, NULL);
+	}
+	else if (!AutoConnect && HoppieConnected)
+	{
+		HoppieConnected = false;
+		DisplayUserMessage("CPDLC", "Server", "Logged off!", true, true, false, true, false);
 	}
 
 	if (((clock() - timer) / CLOCKS_PER_SEC) > randomInterval && HoppieConnected) {
