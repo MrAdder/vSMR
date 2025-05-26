@@ -15,7 +15,6 @@ CCPDLCSettingsDialog::CCPDLCSettingsDialog(CWnd* pParent /*=NULL*/)
 	, m_Logon(_T("EGKK"))
 	, m_Password(_T("PASSWORD"))
 	, m_Sound(1)
-	, m_Auto(0)
 {
 
 }
@@ -30,7 +29,6 @@ void CCPDLCSettingsDialog::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_LOGON, m_Logon);
 	DDX_Text(pDX, IDC_PASSWORD, m_Password);
 	DDX_Check(pDX, IDC_SOUND, m_Sound);
-	DDX_Check(pDX, IDC_AUTO, m_Auto);
 }
 
 
