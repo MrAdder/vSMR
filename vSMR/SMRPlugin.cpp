@@ -71,10 +71,6 @@ char recv_buf[1024];
 
 vector<CSMRRadar*> RadarScreensOpened;
 
-void initializeRandomInterval() {
-    randomInterval = 45 + rand() % 31; // 45 to 75 seconds
-}
-
 void datalinkLogin(void * arg) {
 	string raw;
 	string url = baseUrlDatalink;
