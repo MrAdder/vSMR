@@ -636,6 +636,24 @@ void CSMRPlugin::OnTimer(int Counter)
 		HoppieConnected = false;
 	}
 
+	// Retry login
+	if (!HoppieConnected && nextLoginRetryTime > 0 && time(NULL) >= nextLoginRetryTime)
+	{
+		_beginthread(datalinkLogin, 0, NULL);
+		nextLoginRetryTime = 0; // Prevent multiple triggers
+	}
+
+	if (AutoConnect && !HoppieConnected && !isConnecting)
+	{
+		isConnecting = true;
+		_beginthread(datalinkLogin, 0, NULL);
+	}
+	else if (!AutoConnect && HoppieConnected)
+	{
+		HoppieConnected = false;
+		DisplayUserMessage("CPDLC", "Server", "Logged off!", true, true, false, true, false);
+	}
+
         if (((clock() - timer) / CLOCKS_PER_SEC) > randomInterval && HoppieConnected) {
             _beginthread(pollMessages, 0, NULL);
             timer = clock();
