@@ -78,11 +78,13 @@ char recv_buf[1024];
 
 vector<CSMRRadar *> RadarScreensOpened;
 
-void initializeRandomInterval() {
-    randomInterval = 45 + rand() % 31; // 45 to 75 seconds
+void initializeRandomInterval()
+{
+	randomInterval = 45 + rand() % 31; // 45 to 75 seconds
 }
 
-void datalinkLogin(void * arg) {
+void datalinkLogin(void *arg)
+{
 	string raw;
 	string url = baseUrlDatalink;
 	url += "?logon=";
@@ -326,10 +328,10 @@ CSMRPlugin::CSMRPlugin(void) : CPlugIn(EuroScopePlugIn::COMPATIBILITY_CODE, MY_P
 	RegisterTagItemFunction("Datalink menu", TAG_FUNC_DATALINK_MENU);
 
 	messageId = rand() % 10000 + 1789;
-	
-        srand(time(NULL)); // Seed the RNG once at the start
-        initializeRandomInterval();
-	
+
+	srand(time(NULL)); // Seed the RNG once at the start
+	initializeRandomInterval();
+
 	timer = clock();
 
 	if (httpHelper == NULL)
@@ -744,11 +746,12 @@ void CSMRPlugin::OnTimer(int Counter)
 		DisplayUserMessage("CPDLC", "Server", "Logged off!", true, true, false, true, false);
 	}
 
-  if (((clock() - timer) / CLOCKS_PER_SEC) > randomInterval && HoppieConnected) {
-    _beginthread(pollMessages, 0, NULL);
-    timer = clock();
-    initializeRandomInterval(); // Generate a new interval for the next check
-  }
+	if (((clock() - timer) / CLOCKS_PER_SEC) > randomInterval && HoppieConnected)
+	{
+		_beginthread(pollMessages, 0, NULL);
+		timer = clock();
+		initializeRandomInterval(); // Generate a new interval for the next check
+	}
 
 	for (auto &ac : AircraftWilco)
 	{
