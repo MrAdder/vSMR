@@ -635,7 +635,7 @@ void CSMRPlugin::OnTimer(int Counter)
 		HoppieConnected = false;
 	}
 
-	if (((clock() - timer) / CLOCKS_PER_SEC) > 10 && HoppieConnected) {
+	if (((clock() - timer) / CLOCKS_PER_SEC) > randomInterval && HoppieConnected) {
 		_beginthread(pollMessages, 0, NULL);
 		timer = clock();
 		initializeRandomInterval(); // Generate a new interval for the next check
