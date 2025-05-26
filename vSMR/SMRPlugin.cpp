@@ -421,7 +421,7 @@ bool CSMRPlugin::OnCompileCommand(const char *sCommandLine)
 		dia.m_Logon = logonCallsign.c_str();
 		dia.m_Password = logonCode.c_str();
 		dia.m_Sound = int(PlaySoundClr);
-		dia.m_autoLogon = int(AutoConnect);
+		dia.m_AutoLogon = int(AutoConnect);
 
 		if (dia.DoModal() != IDOK)
 			return true;
@@ -429,7 +429,7 @@ bool CSMRPlugin::OnCompileCommand(const char *sCommandLine)
 		logonCallsign = dia.m_Logon;
 		logonCode = dia.m_Password;
 		PlaySoundClr = bool(!!dia.m_Sound);
-		AutoConnect = bool(!!dia.m_autoLogon);
+		AutoConnect = bool(!!dia.m_AutoLogon);
 		SaveDataToSettings("cpdlc_logon", "The CPDLC logon callsign", logonCallsign.c_str());
 		SaveDataToSettings("cpdlc_password", "The CPDLC logon password", logonCode.c_str());
 		int temp = 0;
