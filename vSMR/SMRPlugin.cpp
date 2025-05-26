@@ -57,6 +57,8 @@ string tdest;
 string ttype;
 
 int messageId = 0;
+int randomInterval = 0;
+
 
 clock_t timer;
 
@@ -76,6 +78,10 @@ using namespace SMRPluginSharedData;
 char recv_buf[1024];
 
 vector<CSMRRadar*> RadarScreensOpened;
+
+void initializeRandomInterval() {
+    randomInterval = 45 + rand() % 31; // 45 to 75 seconds
+}
 
 void datalinkLogin(void * arg) {
 	string raw;
@@ -303,8 +309,8 @@ CSMRPlugin::CSMRPlugin(void) :CPlugIn(EuroScopePlugIn::COMPATIBILITY_CODE, MY_PL
 	RegisterTagItemFunction("Datalink menu", TAG_FUNC_DATALINK_MENU);
 
 	messageId = rand() % 10000 + 1789;
-	
-        srand(time(NULL));
+
+  srand(time(NULL));
 	timer = clock();
 	initializeRandomInterval();
 
@@ -717,7 +723,7 @@ void CSMRPlugin::OnTimer(int Counter)
 		HoppieConnected = false;
 	}
 
-	if (((clock() - timer) / CLOCKS_PER_SEC) > 10 && HoppieConnected) {
+	if (((clock() - timer) / CLOCKS_PER_SEC) > randomInterval && HoppieConnected) {
 		_beginthread(pollMessages, 0, NULL);
 		timer = clock();
 		initializeRandomInterval(); // Generate a new interval for the next check
