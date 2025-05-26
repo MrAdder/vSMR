@@ -93,6 +93,7 @@ void datalinkLogin(void *arg)
 		HoppieConnected = true;
 		ConnectionMessage = true;
 		loginRetryCount = 0;
+		isConnecting = false;
 	}
 	else
 	{
@@ -108,6 +109,7 @@ void datalinkLogin(void *arg)
 			loginRetryCount = 0; // Reset after giving up
 			nextLoginRetryTime = 0;
 		}
+		isConnecting = false;
 	}
 };
 
@@ -701,6 +703,7 @@ void CSMRPlugin::OnTimer(int Counter)
 	Logger::info(string(__FUNCSIG__));
 	BLINK = !BLINK;
 
+
 	if (HoppieConnected && ConnectionMessage)
 	{
 		DisplayUserMessage("CPDLC", "Server", "Logged in!", true, true, false, true, false);
@@ -722,10 +725,13 @@ void CSMRPlugin::OnTimer(int Counter)
 	// Retry login
 	if (!HoppieConnected && nextLoginRetryTime > 0 && time(NULL) >= nextLoginRetryTime)
 	{
+		isConnecting = true;
 		_beginthread(datalinkLogin, 0, NULL);
 		nextLoginRetryTime = 0; // Prevent multiple triggers
 	}
 
+	
+	//Auto connection
 	if (AutoConnect && !HoppieConnected && !isConnecting)
 	{
 		isConnecting = true;
@@ -734,7 +740,7 @@ void CSMRPlugin::OnTimer(int Counter)
 	else if (!AutoConnect && HoppieConnected)
 	{
 		HoppieConnected = false;
-		DisplayUserMessage("CPDLC", "Server", "Logged off!", true, true, false, true, false);
+		DisplayUserMessage("CPDLC", "Server", "Please run .smr connect to login!", true, true, false, true, false);
 	}
 
 	if (((clock() - timer) / CLOCKS_PER_SEC) > 10 && HoppieConnected)
