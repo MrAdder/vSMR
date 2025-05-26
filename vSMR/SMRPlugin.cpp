@@ -60,6 +60,12 @@ int messageId = 0;
 
 clock_t timer;
 
+int randomInterval = 0;
+
+void initializeRandomInterval() {
+    randomInterval = 45 + rand() % 31; // 45 to 75 seconds
+}
+
 string myfrequency;
 
 map<string, string> vStrips_Stands;
@@ -297,8 +303,10 @@ CSMRPlugin::CSMRPlugin(void) :CPlugIn(EuroScopePlugIn::COMPATIBILITY_CODE, MY_PL
 	RegisterTagItemFunction("Datalink menu", TAG_FUNC_DATALINK_MENU);
 
 	messageId = rand() % 10000 + 1789;
-
+	
+        srand(time(NULL));
 	timer = clock();
+	initializeRandomInterval();
 
 	if (httpHelper == NULL)
 		httpHelper = new HttpHelper();
@@ -712,6 +720,7 @@ void CSMRPlugin::OnTimer(int Counter)
 	if (((clock() - timer) / CLOCKS_PER_SEC) > 55 && HoppieConnected) {
 		_beginthread(pollMessages, 0, NULL);
 		timer = clock();
+		initializeRandomInterval(); // Generate a new interval for the next check
 	}
 
 	for (auto &ac : AircraftWilco)
