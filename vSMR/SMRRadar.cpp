@@ -2502,7 +2502,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 	COLORREF oldColor = dc.SetTextColor(RGB(33, 33, 33));
 
 	int TextHeight = dc.GetTextExtent("60").cy;
-	int LineSpacing = TextHeight + 4; // Add 4 pixels between lines
+	int LineSpacing = TextHeight + 3; // Add 3 pixels between lines
 	Logger::info("RIMCAS Loop");
 	for (std::map<string, bool>::iterator it = RimcasInstance->MonitoredRunwayArr.begin(); it != RimcasInstance->MonitoredRunwayArr.end(); ++it)
 	{
@@ -2513,8 +2513,34 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		if (isLVP)
 			TimeDefinition = RimcasInstance->CountdownDefinitionLVP;
 
+		// Calculate box dimensions based on content
+		int maxWidth = 0;
+		char buffer[256];
+		for (auto &Time : TimeDefinition)
+		{
+			if (RimcasInstance->TimeTable[it->first].find(Time) != RimcasInstance->TimeTable[it->first].end())
+			{
+				auto acInfo = RimcasInstance->TimeTable[it->first][Time];
+				sprintf_s(buffer, "%2d: %-10s %-8s %s", 
+					Time, 
+					acInfo.callsign.c_str(),
+					acInfo.type.empty() ? "" : acInfo.type.c_str(),
+					acInfo.stand.empty() ? "" : acInfo.stand.c_str());
+			}
+			else
+			{
+				sprintf_s(buffer, "%2d: ", Time);
+			}
+			int textWidth = dc.GetTextExtent(buffer).cx;
+			if (textWidth > maxWidth)
+				maxWidth = textWidth;
+		}
+		
+		int boxWidth = maxWidth + 15; // 5px left padding + 5px right padding + 5px margin
+		int boxHeight = LineSpacing * (TimeDefinition.size() + 1) + 5; // +1 for runway name, +5px total padding
+
 		if (TimePopupAreas.find(it->first) == TimePopupAreas.end())
-			TimePopupAreas[it->first] = { 300, 300, 600, 300+LONG(LineSpacing*(TimeDefinition.size()+1)) + 10 };
+			TimePopupAreas[it->first] = { 300, 300, 300 + boxWidth, 300 + boxHeight };
 
 		CRect CRectTime = TimePopupAreas[it->first];
 		CRectTime.NormalizeRect();
