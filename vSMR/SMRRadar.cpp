@@ -2502,6 +2502,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 	COLORREF oldColor = dc.SetTextColor(RGB(33, 33, 33));
 
 	int TextHeight = dc.GetTextExtent("60").cy;
+	int LineSpacing = TextHeight + 4; // Add 4 pixels between lines
 	Logger::info("RIMCAS Loop");
 	for (std::map<string, bool>::iterator it = RimcasInstance->MonitoredRunwayArr.begin(); it != RimcasInstance->MonitoredRunwayArr.end(); ++it)
 	{
@@ -2513,7 +2514,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			TimeDefinition = RimcasInstance->CountdownDefinitionLVP;
 
 		if (TimePopupAreas.find(it->first) == TimePopupAreas.end())
-			TimePopupAreas[it->first] = { 300, 300, 430, 300+LONG(TextHeight*(TimeDefinition.size()+1)) };
+			TimePopupAreas[it->first] = { 300, 300, 600, 300+LONG(LineSpacing*(TimeDefinition.size()+1)) + 10 };
 
 		CRect CRectTime = TimePopupAreas[it->first];
 		CRectTime.NormalizeRect();
@@ -2522,9 +2523,9 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 		// Drawing the runway name
 		string tempS = it->first;
-		dc.TextOutA(CRectTime.left + CRectTime.Width() / 2 - dc.GetTextExtent(tempS.c_str()).cx / 2, CRectTime.top, tempS.c_str());
+		dc.TextOutA(CRectTime.left + CRectTime.Width() / 2 - dc.GetTextExtent(tempS.c_str()).cx / 2, CRectTime.top + 2, tempS.c_str());
 
-		int TopOffset = TextHeight;
+		int TopOffset = LineSpacing;
 		// Drawing the times
 		for (auto &Time : TimeDefinition)
 		{
@@ -2534,11 +2535,15 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			if (RimcasInstance->TimeTable[it->first].find(Time) != RimcasInstance->TimeTable[it->first].end())
 			{
 				auto acInfo = RimcasInstance->TimeTable[it->first][Time];
-				tempS = std::to_string(Time) + ": " + acInfo.callsign;
-				if (!acInfo.type.empty())
-					tempS += " " + acInfo.type;
-				if (!acInfo.stand.empty())
-					tempS += " " + acInfo.stand;
+				
+				// Build formatted string with fixed spacing
+				char buffer[256];
+				sprintf_s(buffer, "%2d: %-10s %-8s %s", 
+					Time, 
+					acInfo.callsign.c_str(),
+					acInfo.type.empty() ? "" : acInfo.type.c_str(),
+					acInfo.stand.empty() ? "" : acInfo.stand.c_str());
+				tempS = buffer;
 
 				if (RimcasInstance->AcColor.find(acInfo.callsign) != RimcasInstance->AcColor.end())
 				{
@@ -2556,15 +2561,15 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 					dc.SetTextColor(RGB(238, 238, 208));
 				}
 
-				dc.TextOutA(CRectTime.left, CRectTime.top + TopOffset, tempS.c_str());
+				dc.TextOutA(CRectTime.left + 5, CRectTime.top + TopOffset, tempS.c_str());
 			}
 			else
 			{
 				tempS = std::to_string(Time) + ": ";
-				dc.TextOutA(CRectTime.left, CRectTime.top + TopOffset, tempS.c_str());
+				dc.TextOutA(CRectTime.left + 5, CRectTime.top + TopOffset, tempS.c_str());
 			}
 
-			TopOffset += TextHeight;
+			TopOffset += LineSpacing;
 		}
 
 		AddScreenObject(RIMCAS_IAW, it->first.c_str(), CRectTime, true, "");
