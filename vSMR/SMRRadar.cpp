@@ -2553,11 +2553,14 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 				maxWidth = textWidth;
 		}
 		
-		int boxWidth = maxWidth + 15; // 5px left padding + 5px right padding + 5px margin
+		int boxPadding = detailedRIMCAS ? 15 : 10; // Smaller padding for simple mode
+		int boxWidth = maxWidth + boxPadding;
 		int boxHeight = LineSpacing * (TimeDefinition.size() + 1) + 5; // +1 for runway name, +5px total padding
 
 		if (TimePopupAreas.find(it->first) == TimePopupAreas.end())
 			TimePopupAreas[it->first] = { 300, 300, 300 + boxWidth, 300 + boxHeight };
+		else
+			TimePopupAreas[it->first] = { TimePopupAreas[it->first].left, TimePopupAreas[it->first].top, TimePopupAreas[it->first].left + boxWidth, TimePopupAreas[it->first].top + boxHeight };
 
 		CRect CRectTime = TimePopupAreas[it->first];
 		CRectTime.NormalizeRect();
