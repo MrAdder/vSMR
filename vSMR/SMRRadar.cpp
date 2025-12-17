@@ -1964,7 +1964,18 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		if (!isAcDisplayed)
 			continue;
 
-		RimcasInstance->OnRefresh(rt, this, IsCorrelated(GetPlugIn()->FlightPlanSelect(rt.GetCallsign()), rt));
+		// Get aircraft type and stand for RIMCAS
+		CFlightPlan fp = GetPlugIn()->FlightPlanSelect(rt.GetCallsign());
+		string acType = "";
+		string acStand = "";
+		if (fp.IsValid() && fp.GetFlightPlanData().IsReceived()) {
+			acType = fp.GetFlightPlanData().GetAircraftFPType();
+			acStand = fp.GetControllerAssignedData().GetFlightStripAnnotation(3);
+			if (acStand.length() == 0)
+				acStand = "";
+		}
+
+		RimcasInstance->OnRefresh(rt, this, IsCorrelated(fp, rt), acType, acStand);
 
 		CRadarTargetPositionData RtPos = rt.GetPosition();
 
@@ -2519,24 +2530,39 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		{
 			dc.SetTextColor(RGB(33, 33, 33));
 
-			tempS = std::to_string(Time) + ": " + RimcasInstance->TimeTable[it->first][Time];
-			if (RimcasInstance->AcColor.find(RimcasInstance->TimeTable[it->first][Time]) != RimcasInstance->AcColor.end())
+			// Get aircraft info from TimeTable
+			if (RimcasInstance->TimeTable[it->first].find(Time) != RimcasInstance->TimeTable[it->first].end())
 			{
-				CBrush RimcasBrush(RimcasInstance->GetAircraftColor(RimcasInstance->TimeTable[it->first][Time],
-					Color::Black,
-					Color::Black,
-					CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["background_color_stage_one"]),
-					CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["background_color_stage_two"])).ToCOLORREF()
-					);
+				auto acInfo = RimcasInstance->TimeTable[it->first][Time];
+				tempS = std::to_string(Time) + ": " + acInfo.callsign;
+				if (!acInfo.type.empty())
+					tempS += " " + acInfo.type;
+				if (!acInfo.stand.empty())
+					tempS += " " + acInfo.stand;
 
-				CRect TempRect = { CRectTime.left, CRectTime.top + TopOffset, CRectTime.right, CRectTime.top + TopOffset + TextHeight };
-				TempRect.NormalizeRect();
+				if (RimcasInstance->AcColor.find(acInfo.callsign) != RimcasInstance->AcColor.end())
+				{
+					CBrush RimcasBrush(RimcasInstance->GetAircraftColor(acInfo.callsign,
+						Color::Black,
+						Color::Black,
+						CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["background_color_stage_one"]),
+						CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["background_color_stage_two"])).ToCOLORREF()
+						);
 
-				dc.FillRect(TempRect, &RimcasBrush);
-				dc.SetTextColor(RGB(238, 238, 208));
+					CRect TempRect = { CRectTime.left, CRectTime.top + TopOffset, CRectTime.right, CRectTime.top + TopOffset + TextHeight };
+					TempRect.NormalizeRect();
+
+					dc.FillRect(TempRect, &RimcasBrush);
+					dc.SetTextColor(RGB(238, 238, 208));
+				}
+
+				dc.TextOutA(CRectTime.left, CRectTime.top + TopOffset, tempS.c_str());
 			}
-
-			dc.TextOutA(CRectTime.left, CRectTime.top + TopOffset, tempS.c_str());
+			else
+			{
+				tempS = std::to_string(Time) + ": ";
+				dc.TextOutA(CRectTime.left, CRectTime.top + TopOffset, tempS.c_str());
+			}
 
 			TopOffset += TextHeight;
 		}
