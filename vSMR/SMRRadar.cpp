@@ -710,6 +710,7 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 			GetPlugIn()->AddPopupListElement("Conflict Alert DEP", "", RIMCAS_OPEN_LIST);
 			GetPlugIn()->AddPopupListElement("Runway closed", "", RIMCAS_OPEN_LIST);
 			GetPlugIn()->AddPopupListElement("Visibility", "", RIMCAS_OPEN_LIST);
+			GetPlugIn()->AddPopupListElement("RIMCAS Detail", "", RIMCAS_OPEN_LIST);
 			GetPlugIn()->AddPopupListElement("Close", "", RIMCAS_CLOSE, false, 2, false, true);
 		}
 
@@ -1047,6 +1048,15 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 			isLVP = true;
 
 		ShowLists["Visibility"] = true;
+	}
+
+	if (FunctionId == RIMCAS_UPDATE_DETAILED) {
+		if (strcmp(sItemString, "Detailed") == 0)
+			detailedRIMCAS = true;
+		if (strcmp(sItemString, "Simple") == 0)
+			detailedRIMCAS = false;
+
+		ShowLists["RIMCAS Detail"] = true;
 
 		RequestRefresh();
 	}
@@ -2521,11 +2531,18 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			if (RimcasInstance->TimeTable[it->first].find(Time) != RimcasInstance->TimeTable[it->first].end())
 			{
 				auto acInfo = RimcasInstance->TimeTable[it->first][Time];
-				sprintf_s(buffer, "%2d: %-10s %-8s %s", 
-					Time, 
-					acInfo.callsign.c_str(),
-					acInfo.type.empty() ? "" : acInfo.type.c_str(),
-					acInfo.stand.empty() ? "" : acInfo.stand.c_str());
+				if (detailedRIMCAS)
+				{
+					sprintf_s(buffer, "%2d: %-10s %-8s %s", 
+						Time, 
+						acInfo.callsign.c_str(),
+						acInfo.type.empty() ? "" : acInfo.type.c_str(),
+						acInfo.stand.empty() ? "" : acInfo.stand.c_str());
+				}
+				else
+				{
+					sprintf_s(buffer, "%2d: %s", Time, acInfo.callsign.c_str());
+				}
 			}
 			else
 			{
@@ -2564,11 +2581,18 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 				
 				// Build formatted string with fixed spacing
 				char buffer[256];
-				sprintf_s(buffer, "%2d: %-10s %-8s %s", 
-					Time, 
-					acInfo.callsign.c_str(),
-					acInfo.type.empty() ? "" : acInfo.type.c_str(),
-					acInfo.stand.empty() ? "" : acInfo.stand.c_str());
+				if (detailedRIMCAS)
+				{
+					sprintf_s(buffer, "%2d: %-10s %-8s %s", 
+						Time, 
+						acInfo.callsign.c_str(),
+						acInfo.type.empty() ? "" : acInfo.type.c_str(),
+						acInfo.stand.empty() ? "" : acInfo.stand.c_str());
+				}
+				else
+				{
+					sprintf_s(buffer, "%2d: %s", Time, acInfo.callsign.c_str());
+				}
 				tempS = buffer;
 
 				if (RimcasInstance->AcColor.find(acInfo.callsign) != RimcasInstance->AcColor.end())
@@ -2640,6 +2664,14 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		GetPlugIn()->AddPopupListElement("Low", "", RIMCAS_UPDATE_LVP, false, int(isLVP));
 		GetPlugIn()->AddPopupListElement("Close", "", RIMCAS_CLOSE, false, 2, false, true);
 		ShowLists["Visibility"] = false;
+	}
+
+	if (ShowLists["RIMCAS Detail"]) {
+		GetPlugIn()->OpenPopupList(ListAreas["RIMCAS Detail"], "RIMCAS Detail", 1);
+		GetPlugIn()->AddPopupListElement("Detailed", "", RIMCAS_UPDATE_DETAILED, false, int(detailedRIMCAS));
+		GetPlugIn()->AddPopupListElement("Simple", "", RIMCAS_UPDATE_DETAILED, false, int(!detailedRIMCAS));
+		GetPlugIn()->AddPopupListElement("Close", "", RIMCAS_CLOSE, false, 2, false, true);
+		ShowLists["RIMCAS Detail"] = false;
 	}
 
 	if (ShowLists["Profiles"]) {
