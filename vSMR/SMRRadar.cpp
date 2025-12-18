@@ -283,6 +283,15 @@ void CSMRRadar::OnAsrContentLoaded(bool Loaded)
 	if ((p_value = GetDataFromAsr("WIPareas")) != NULL)
 		wipAreasActive = atoi(p_value);
 
+	if ((p_value = GetDataFromAsr("ShowAircraftType")) != NULL)
+		showAircraftType = atoi(p_value) == 1 ? true : false;
+
+	if ((p_value = GetDataFromAsr("ShowSID")) != NULL)
+		showSID = atoi(p_value) == 1 ? true : false;
+
+	if ((p_value = GetDataFromAsr("ShowWakeTurb")) != NULL)
+		showWakeTurb = atoi(p_value) == 1 ? true : false;
+
 	string temp;
 
 	for (int i = 1; i < 3; i++)
@@ -361,6 +370,12 @@ void CSMRRadar::OnAsrContentToBeSaved()
 	SaveDataToAsr("PredictedLine", "vSMR Predicted Track Lines", std::to_string(PredictedLength).c_str());
 
 	SaveDataToAsr("WIPareas", "vSMR WIP Areas", std::to_string(wipAreasActive).c_str());
+
+	SaveDataToAsr("ShowAircraftType", "Show Aircraft Type", std::to_string(showAircraftType).c_str());
+
+	SaveDataToAsr("ShowSID", "Show SID", std::to_string(showSID).c_str());
+
+	SaveDataToAsr("ShowWakeTurb", "Show Wake Turbulence", std::to_string(showWakeTurb).c_str());
 
 	string temp = "";
 
@@ -662,6 +677,9 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 			GetPlugIn()->AddPopupListElement("SRW 1", "", APPWINDOW_ONE, false, int(appWindowDisplays[1]));
 			GetPlugIn()->AddPopupListElement("SRW 2", "", APPWINDOW_TWO, false, int(appWindowDisplays[2]));
 			GetPlugIn()->AddPopupListElement("WIP Areas", "", WIP_AREAS, false, int(wipAreasActive));
+			GetPlugIn()->AddPopupListElement("Show Aircraft Type", "", RIMCAS_TOGGLE_AIRCRAFT_TYPE, false, int(showAircraftType));
+			GetPlugIn()->AddPopupListElement("Show SID", "", RIMCAS_TOGGLE_SID, false, int(showSID));
+			GetPlugIn()->AddPopupListElement("Show Wake Catagory", "", RIMCAS_TOGGLE_WAKE_TURB, false, int(showWakeTurb));
 			GetPlugIn()->AddPopupListElement("Profiles", "", RIMCAS_OPEN_LIST);
 			GetPlugIn()->AddPopupListElement("Close", "", RIMCAS_CLOSE, false, 2, false, true);
 		}
@@ -1041,6 +1059,21 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 		RequestRefresh();
 	}
 
+	if (FunctionId == RIMCAS_TOGGLE_AIRCRAFT_TYPE) {
+		showAircraftType = !showAircraftType;
+		SaveDataToAsr("ShowAircraftType", "Show Aircraft Type", std::to_string(showAircraftType).c_str());
+	}
+
+	if (FunctionId == RIMCAS_TOGGLE_SID) {
+		showSID = !showSID;
+		SaveDataToAsr("ShowSID", "Show SID", std::to_string(showSID).c_str());
+	}
+
+	if (FunctionId == RIMCAS_TOGGLE_WAKE_TURB) {
+		showWakeTurb = !showWakeTurb;
+		SaveDataToAsr("ShowWakeTurb", "Show Wake Turbulence", std::to_string(showWakeTurb).c_str());
+	}
+
 	if (FunctionId == RIMCAS_UPDATE_LVP) {
 		if (strcmp(sItemString, "Normal") == 0)
 			isLVP = false;
@@ -1379,7 +1412,7 @@ bool CSMRRadar::OnCompileCommand(const char * sCommandLine)
 	return false;
 }
 
-map<string, string> CSMRRadar::GenerateTagData(CRadarTarget rt, CFlightPlan fp, bool isAcCorrelated, bool isProMode, int TransitionAltitude, bool useSpeedForGates, string ActiveAirport)
+map<string, string> CSMRRadar::GenerateTagData(CRadarTarget rt, CFlightPlan fp, bool isAcCorrelated, bool isProMode, int TransitionAltitude, bool useSpeedForGates, string ActiveAirport, bool showAircraftType, bool showSID, bool showWakeTurb)
 {
 	Logger::info(string(__FUNCSIG__));
 	// ----
@@ -1633,8 +1666,8 @@ map<string, string> CSMRRadar::GenerateTagData(CRadarTarget rt, CFlightPlan fp, 
 	}
 
 	TagReplacingMap["callsign"] = callsign;
-	TagReplacingMap["actype"] = actype;
-	TagReplacingMap["sctype"] = sctype;
+	TagReplacingMap["actype"] = showAircraftType ? actype : "";
+	TagReplacingMap["sctype"] = showAircraftType ? sctype : "";
 	TagReplacingMap["sqerror"] = sqerror;
 	TagReplacingMap["deprwy"] = deprwy;
 	TagReplacingMap["seprwy"] = seprwy;
@@ -1645,10 +1678,10 @@ map<string, string> CSMRRadar::GenerateTagData(CRadarTarget rt, CFlightPlan fp, 
 	TagReplacingMap["flightlevel"] = flightlevel;
 	TagReplacingMap["gs"] = speed;
 	TagReplacingMap["tendency"] = tendency;
-	TagReplacingMap["wake"] = wake;
+	TagReplacingMap["wake"] = showWakeTurb ? wake : "";
 	TagReplacingMap["ssr"] = tssr;
-	TagReplacingMap["asid"] = dep;
-	TagReplacingMap["ssid"] = ssid;
+	TagReplacingMap["asid"] = showSID ? dep : "";
+	TagReplacingMap["ssid"] = showSID ? ssid : "";
 	TagReplacingMap["origin"] = origin;
 	TagReplacingMap["dest"] = dest;
 	TagReplacingMap["groundstatus"] = gstat;
@@ -2266,7 +2299,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			ColorTagType = TagTypes::Uncorrelated;
 		}
 
-		map<string, string> TagReplacingMap = GenerateTagData(rt, fp, IsCorrelated(fp, rt), CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["enable"].GetBool(), GetPlugIn()->GetTransitionAltitude(), CurrentConfig->getActiveProfile()["labels"]["use_aspeed_for_gate"].GetBool(), getActiveAirport());
+		map<string, string> TagReplacingMap = GenerateTagData(rt, fp, IsCorrelated(fp, rt), CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["enable"].GetBool(), GetPlugIn()->GetTransitionAltitude(), CurrentConfig->getActiveProfile()["labels"]["use_aspeed_for_gate"].GetBool(), getActiveAirport(), showAircraftType, showSID, showWakeTurb);
 
 		// ----- Generating the clickable map -----
 		map<string, int> TagClickableMap;
@@ -2311,6 +2344,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		const Value& LabelsSettings = CurrentConfig->getActiveProfile()["labels"];
 		const Value& LabelLines = LabelsSettings[Utils::getEnumString(TagType).c_str()]["definition"];
 		vector<vector<string>> ReplacedLabelLines;
+		vector<int> LineWidths; // Store width of each line
 
 		if (!LabelLines.IsArray())
 			return;
@@ -2321,10 +2355,8 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			const Value& line = LabelLines[i];
 			vector<string> lineStringArray;
 
-			// Adds one line height
-			TagHeight += oneLineHeight;
-
 			int TempTagWidth = 0;
+			bool lineHasContent = false;
 
 			for(unsigned int j = 0; j < line.Size(); j++)
 			{
@@ -2336,21 +2368,46 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 				lineStringArray.push_back(element);
 
+				// Check if this element has actual content
+				if (!element.empty()) {
+					lineHasContent = true;
+				}
+
 				wstring wstr = wstring(element.begin(), element.end());
 				graphics.MeasureString(wstr.c_str(), wcslen(wstr.c_str()),
 					customFonts[currentFontSize], PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
 
 				TempTagWidth += (int) mesureRect.GetRight();
 
-				if (j != line.Size() - 1)
-					TempTagWidth += (int) blankWidth;
+				// Only add blank space if this element is not empty AND there's a next element that's not empty
+				if (!element.empty() && j != line.Size() - 1) {
+					// Check if any subsequent element has content
+					bool hasNextContent = false;
+					for (unsigned int k = j + 1; k < line.Size(); k++) {
+						string nextElement = line[k].GetString();
+						for (auto& kv : TagReplacingMap)
+							replaceAll(nextElement, kv.first, kv.second);
+						if (!nextElement.empty()) {
+							hasNextContent = true;
+							break;
+						}
+					}
+					if (hasNextContent) {
+						TempTagWidth += (int) blankWidth;
+					}
+				}
 			}
 
+			// Only add height for lines that have actual content
+			if (lineHasContent) {
+				TagHeight += oneLineHeight;
+			}
+
+			LineWidths.push_back(TempTagWidth); // Store actual line width
 			TagWidth = max(TagWidth, TempTagWidth);
 
 			ReplacedLabelLines.push_back(lineStringArray);
 		}
-		TagHeight = TagHeight - 2;
 
 		Color definedBackgroundColor = CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["background_color"]);
 		
@@ -2456,9 +2513,28 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 		// Clickable zones
 		int heightOffset = 0;
+		int lineIndex = 0;
 		for (auto&& line : ReplacedLabelLines)
 		{
+			// Check if line has any content
+			bool lineHasContent = false;
+			for (auto&& element : line) {
+				if (!element.empty()) {
+					lineHasContent = true;
+					break;
+				}
+			}
+
+			// Skip empty lines
+			if (!lineHasContent) {
+				lineIndex++;
+				continue;
+			}
+
+			// Left-align all text
 			int widthOffset = 0;
+			int elementIndex = 0;
+			
 			for (auto&& element : line)
 			{
 				SolidBrush* color = &FontColor;
@@ -2494,10 +2570,25 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 				AddScreenObject(TagClickableMap[element], rt.GetCallsign(), ItemRect, true, GetBottomLine(rt.GetCallsign()).c_str());
 
 				widthOffset += (int)mRect.GetRight();
-				widthOffset += blankWidth;
+				
+				// Only add blank space if this element is not empty AND there's a next element with content
+				if (!element.empty() && elementIndex < line.size() - 1) {
+					bool hasNextContent = false;
+					for (size_t k = elementIndex + 1; k < line.size(); k++) {
+						if (!line[k].empty()) {
+							hasNextContent = true;
+							break;
+						}
+					}
+					if (hasNextContent) {
+						widthOffset += blankWidth;
+					}
+				}
+				elementIndex++;
 			}
 
 			heightOffset += oneLineHeight;
+			lineIndex++;
 		}
 
 
