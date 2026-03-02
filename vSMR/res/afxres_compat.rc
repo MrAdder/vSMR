@@ -1,0 +1,8 @@
+// Compatibility include for MFC standard resources.
+// clang/LLVM resource preprocessing cannot parse the UTF-16 encoded afxres.rc
+// shipped with Visual Studio, so we avoid including it on clang-based builds.
+#ifdef __clang__
+#include "afxres.h"
+#else
+#include "afxres.rc"
+#endif
