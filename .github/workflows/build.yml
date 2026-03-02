@@ -13,7 +13,7 @@ jobs:
     name: Build
     runs-on: windows-2025
     concurrency:
-      group: ukcp-build-${{ github.ref }}
+      group: vsmr-build-${{ github.ref }}
       cancel-in-progress: true
     steps:
       - name: Checkout Code and Submodules
