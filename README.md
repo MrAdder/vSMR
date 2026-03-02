@@ -19,7 +19,7 @@ Download the latest release here: <https://github.com/pierr3/vSMR/releases>
 
 ### Nightly build
 
-vSMR now has a nightly build courtersey of Appveyor, available at <https://ci.appveyor.com/api/projects/pierr3/vSMR/artifacts/vSMR-nightly.zip>
+vSMR now has a nightly build courtersey of Appveyaor, available at <https://ci.appveyor.com/api/projects/pierr3/vSMR/artifacts/vSMR-nightly.zip>
 
 The nightly build is always up to date with the latest commit, however it may be very unstable and may crash EuroScope. **Don't forget to add the ICAO_Airlines.txt file to the vSMR dll folder when using this build.**
 
