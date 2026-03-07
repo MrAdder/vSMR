@@ -21,6 +21,7 @@ build/
 bld/
 [Bb]in/
 [Oo]bj/
+CMakeUserPresets.json
 
 # Visual Studo 2015 cache/options directory
 .vs/
@@ -198,11 +199,10 @@ FakesAssemblies/
 #Custom
 
 curl-7.41.0/
+conan/
 ipch/
 package/
 /vSMR/version.txt
 /vSMR/SectorFileProviderDescriptor.txt
 /vSMR/ipaddr.txt
 /vSMR/euroscope_sector_providers.txt
-vSMR/vSMR.vcxproj
-/lib/include/boost_1_85_0/

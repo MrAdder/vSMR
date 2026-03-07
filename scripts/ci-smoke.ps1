@@ -50,10 +50,29 @@ foreach ($row in $csvRows) {
   }
 }
 
-# Lint-like hygiene check: prevent hardcoded local user paths in project files.
-$projectContent = Get-Content -Raw -Path "vSMR/vSMR.vcxproj"
-if ($projectContent -match "[A-Za-z]:\\Users\\") {
-  throw "vSMR.vcxproj contains a hardcoded user profile path."
+# Enforce CMake/Conan-only build layout.
+$legacyBuildFiles = @(
+  "vSMR.sln",
+  "vSMR/vSMR.vcxproj",
+  "vSMR/vSMR.vcxproj.filters"
+)
+foreach ($legacyFile in $legacyBuildFiles) {
+  if (Test-Path $legacyFile) {
+    throw "Legacy Visual Studio build file still present: $legacyFile"
+  }
+}
+
+if ((Test-Path "lib/include/asio") -or (Test-Path "lib/include/rapidjson") -or (Test-Path "lib/include/asio.hpp")) {
+  throw "Vendored asio/rapidjson headers are still present under lib/include."
+}
+
+# Lint-like hygiene check: prevent hardcoded local user paths in build definitions.
+$buildDefinitionFiles = @("CMakeLists.txt", "conanfile.py")
+foreach ($buildFile in $buildDefinitionFiles) {
+  $content = Get-Content -Raw -Path $buildFile
+  if ($content -match "[A-Za-z]:\\Users\\") {
+    throw "$buildFile contains a hardcoded user profile path."
+  }
 }
 
 Write-Host "Smoke checks passed: JSON, CSV, and project path hygiene."
