@@ -1,4 +1,4 @@
-name: Build DLL
+name: Build
 
 on:
   push:
@@ -18,8 +18,11 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest
-
+    name: Build
+    runs-on: windows-2025
+    concurrency:
+      group: vsmr-build-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
@@ -31,7 +34,8 @@ jobs:
       - name: Setup MSBuild Path
         uses: microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce
 
-      - name: Bootstrap vcpkg
+      # Environment things
+      - name: Install VC++ 2010 Redistributables (x86 and x64)
         run: |
           git clone https://github.com/microsoft/vcpkg.git
           cd vcpkg
@@ -49,11 +53,31 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-vcpkg-bdd229e13c66fa11acdc0bc8fed8e7474cd24aa5-
 
-      - name: Install libcurl
+      - name: Check Clang Version
+        run: clang-cl --version
+
+      - name: Setup Ninja
+        uses: seanmiddleditch/gha-setup-ninja@master
+
+      # cURL
+      - name: Cache cURL
+        id: cache-curl
+        uses: actions/cache@v5
+        with:
+          path: "C:\\hostedtoolcache\\windows\\libcurl"
+          key: "ukcp-curl-build"
+
+      - name: Download and Build cURL
+        if: steps.cache-curl.outputs.cache-hit != 'true'
+        env:
+          CURL_DOWNLOAD_URL: "https://github.com/curl/curl/releases/download/curl-7_76_1/curl-7.76.1.zip"
+          CURL_VERSION: 7.76.1
         run: |
           .\vcpkg\vcpkg.exe install curl[core,ssl] --triplet x86-windows-static
 
-      - name: Integrate vcpkg with MSBuild
+      - name: Setup cURL Environment
+        env:
+          CURL_VERSION: 7.76.1
         run: |
           .\vcpkg\vcpkg.exe integrate install
 
@@ -94,8 +118,9 @@ jobs:
           }
         shell: pwsh
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+      # Upload artifact
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ steps.stage_artifact.outputs.artifact_name }}
           path: ${{ steps.stage_artifact.outputs.artifact_path }}
