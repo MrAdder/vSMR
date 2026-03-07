@@ -11,6 +11,23 @@ Features:
 
 Find out all you need to know on the wiki: <https://github.com/pierr3/vSMR/wiki>
 
+### Build (Conan)
+
+vSMR now uses Conan for third-party dependencies.
+
+```powershell
+conan profile detect --force
+conan install . --output-folder=conan --build=missing `
+  -s os=Windows -s arch=x86 -s compiler=msvc -s compiler.version=193 `
+  -s compiler.runtime=static -s compiler.runtime_type=Release `
+  -s compiler.cppstd=17 -s build_type=Release
+cmake -S . -B build -G "Visual Studio 17 2022" -A Win32 `
+  "-DCMAKE_TOOLCHAIN_FILE=conan/conan_toolchain.cmake" `
+  "-DCMAKE_BUILD_TYPE=Release"
+cmake --build build --config Release --target vSMR --parallel
+ctest --test-dir build -C Release --output-on-failure
+```
+
 ### Release
 
 This is the latest stable release, which has been tested and the one you should use for day to day use.

@@ -34,52 +34,86 @@ jobs:
       - name: Setup MSBuild Path
         uses: microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce
 
-      # Environment things
-      - name: Install VC++ 2010 Redistributables (x86 and x64)
-        run: |
-          git clone https://github.com/microsoft/vcpkg.git
-          cd vcpkg
-          git checkout bdd229e13c66fa11acdc0bc8fed8e7474cd24aa5
-          .\bootstrap-vcpkg.bat
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
-      - name: Restore vcpkg cache
+      - name: Get changed C/C++ files
+        if: github.event_name == 'pull_request'
+        id: changed-files
+        uses: Ana06/get-changed-files@v2.3.0
+        with:
+          filter: |
+            vSMR/**/*.cpp
+            vSMR/**/*.h
+            vSMR/**/*.hpp
+
+      - name: Install clang-format
+        if: github.event_name == 'pull_request'
+        run: python -m pip install --disable-pip-version-check clang-format==19.1.7
+
+      - name: Clang Format
+        if: github.event_name == 'pull_request'
+        run: |
+          $raw = "${{ steps.changed-files.outputs.added_modified }}"
+          $files = $raw -split "[,\r\n]" | ForEach-Object { $_.Trim() } | Where-Object { $_ -and (Test-Path $_) }
+
+          if ($files.Count -gt 0) {
+            clang-format --style=file --dry-run -Werror $files
+          } else {
+            Write-Host "No changed C/C++ files to lint."
+          }
+        shell: pwsh
+
+      - name: Get Changed Files (Src)
+        if: github.event_name == 'pull_request'
+        id: changed-files-src
+        uses: Ana06/get-changed-files@v2.3.0
+        with:
+          filter: |
+            vSMR/**/*.cpp
+
+      - name: Clang Tidy (Src)
+        continue-on-error: true
+        if: false
+        run: |
+          $raw = "${{ steps.changed-files-src.outputs.added_modified }}"
+          $files = $raw -split "[,\r\n]" | ForEach-Object { $_.Trim() } | Where-Object { $_ -and (Test-Path $_) }
+
+          if ($files.Count -gt 0) {
+            clang-tidy $files -p build
+          } else {
+            Write-Host "No changed source files for clang-tidy."
+          }
+        shell: pwsh
+
+      - name: Install Conan
+        run: python -m pip install --disable-pip-version-check conan==2.26.1
+
+      - name: Restore Conan cache
         uses: actions/cache@v4
         with:
           path: |
-            vcpkg\downloads
-            vcpkg\packages
-            vcpkg\installed
-          key: ${{ runner.os }}-vcpkg-bdd229e13c66fa11acdc0bc8fed8e7474cd24aa5-x86-windows-static
+            ~/.conan2/p
+            ~/.conan2/extensions
+          key: ${{ runner.os }}-conan-${{ hashFiles('conanfile.py') }}
           restore-keys: |
-            ${{ runner.os }}-vcpkg-bdd229e13c66fa11acdc0bc8fed8e7474cd24aa5-
+            ${{ runner.os }}-conan-
 
-      - name: Check Clang Version
-        run: clang-cl --version
-
-      - name: Setup Ninja
-        uses: seanmiddleditch/gha-setup-ninja@master
-
-      # cURL
-      - name: Cache cURL
-        id: cache-curl
-        uses: actions/cache@v5
-        with:
-          path: "C:\\hostedtoolcache\\windows\\libcurl"
-          key: "ukcp-curl-build"
-
-      - name: Download and Build cURL
-        if: steps.cache-curl.outputs.cache-hit != 'true'
-        env:
-          CURL_DOWNLOAD_URL: "https://github.com/curl/curl/releases/download/curl-7_76_1/curl-7.76.1.zip"
-          CURL_VERSION: 7.76.1
+      - name: Install Conan dependencies
         run: |
-          .\vcpkg\vcpkg.exe install curl[core,ssl] --triplet x86-windows-static
-
-      - name: Setup cURL Environment
-        env:
-          CURL_VERSION: 7.76.1
-        run: |
-          .\vcpkg\vcpkg.exe integrate install
+          conan profile detect --force
+          conan install . --output-folder=conan --build=missing `
+            -s os=Windows `
+            -s arch=x86 `
+            -s compiler=msvc `
+            -s compiler.version=193 `
+            -s compiler.runtime=static `
+            -s compiler.runtime_type=Release `
+            -s compiler.cppstd=17 `
+            -s build_type=Release
+        shell: pwsh
 
       - name: Update Build Version
         run: |
@@ -99,8 +133,20 @@ jobs:
             | Set-Content -Path "vSMR\vSMR.rc"
         shell: pwsh
 
+      - name: Configure CMake
+        run: |
+          cmake -S . -B build -G "Visual Studio 17 2022" -A Win32 `
+            "-DCMAKE_TOOLCHAIN_FILE=conan/conan_toolchain.cmake" `
+            "-DCMAKE_BUILD_TYPE=Release"
+        shell: pwsh
+
       - name: Build DLL
-        run: msbuild vSMR.sln /p:Configuration=Release /p:Platform=Win32 /p:VcpkgTriplet=x86-windows-static /m
+        run: cmake --build build --config Release --target vSMR --parallel
+        shell: pwsh
+
+      - name: Run tests
+        run: ctest --test-dir build -C Release --output-on-failure
+        shell: pwsh
 
       - name: Stage DLL artifact
         id: stage_artifact
