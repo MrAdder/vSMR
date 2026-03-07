@@ -60,7 +60,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;_USRDLL;%(PreprocessorDefinitions);CURL_STATICLIB;CURL_STATIC;ASIO_STANDALONE</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Users\olive\OneDrive\Documents\GitHub\vSMR\lib\include;C:\Users\olive\OneDrive\Documents\GitHub\vSMR\lib\include\boost_1_85_0</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\lib\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <TreatWChar_tAsBuiltInType>false</TreatWChar_tAsBuiltInType>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -76,7 +76,7 @@
       <ModuleDefinitionFile>.\vSMR.def</ModuleDefinitionFile>
       <AdditionalDependencies>..\lib\EuroScopePlugInDll.lib;</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
-      <AdditionalLibraryDirectories>C:\Users\olive\OneDrive\Documents\GitHub\vSMR\lib\include\asio;C:\Users\olive\OneDrive\Documents\GitHub\vSMR\lib\include\curl;C:\Users\olive\OneDrive\Documents\GitHub\vSMR\lib\include\rapidjson;C:\Users\olive\OneDrive\Documents\GitHub\vSMR\lib\include\boost_1_85_0\boost;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalOptions>/IGNORE:4099 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <Midl>
