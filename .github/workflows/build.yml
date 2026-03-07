@@ -42,7 +42,7 @@ jobs:
       - name: Get changed C/C++ files
         if: github.event_name == 'pull_request'
         id: changed-files
-        uses: Ana06/get-changed-files@v2.3.0
+        uses: Ana06/get-changed-files@25f79e676e7ea1868813e21465014798211fad8c
         with:
           filter: |
             vSMR/**/*.cpp
@@ -69,7 +69,7 @@ jobs:
       - name: Get Changed Files (Src)
         if: github.event_name == 'pull_request'
         id: changed-files-src
-        uses: Ana06/get-changed-files@v2.3.0
+        uses: Ana06/get-changed-files@25f79e676e7ea1868813e21465014798211fad8c
         with:
           filter: |
             vSMR/**/*.cpp
@@ -159,8 +159,13 @@ jobs:
             "artifact_path=dist/vSMR.dll" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           } else {
             Copy-Item Release\vSMR.dll dist\vSMR-nightly.dll -Force
-            "artifact_name=vSMR-nightly.dll" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-            "artifact_path=dist/vSMR-nightly.dll" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            Copy-Item vSMR\vSMR_Profiles.json dist\vSMR_Profiles.json -Force
+            if (Test-Path dist\vSMR-nightly.zip) {
+              Remove-Item dist\vSMR-nightly.zip -Force
+            }
+            Compress-Archive -Path dist\vSMR-nightly.dll,dist\vSMR_Profiles.json -DestinationPath dist\vSMR-nightly.zip -Force
+            "artifact_name=vSMR-nightly.zip" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            "artifact_path=dist/vSMR-nightly.zip" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           }
         shell: pwsh
 

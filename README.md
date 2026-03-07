@@ -1,5 +1,7 @@
 # vSMR Plugin
 
+[![Build](https://github.com/VATSIM-UK/vSMR/actions/workflows/build.yml/badge.svg)](https://github.com/VATSIM-UK/vSMR/actions/workflows/build.yml)
+
 vSMR is a plugin for EuroScope that simulates the NOVA 9000 A-SMGCS system on VATSIM.
 
 Features:
@@ -14,6 +16,18 @@ Find out all you need to know on the wiki: <https://github.com/pierr3/vSMR/wiki>
 ### Build (Conan)
 
 vSMR now uses Conan for third-party dependencies.
+
+Quick local build (Windows, from repo root):
+
+```bat
+build-local.bat
+```
+
+Optional arguments:
+
+```bat
+build-local.bat [Release|Debug] [x86|x64] [--no-tests]
+```
 
 ```powershell
 conan profile detect --force
