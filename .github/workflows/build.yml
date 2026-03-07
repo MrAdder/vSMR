@@ -2,11 +2,19 @@ name: Build
 
 on:
   push:
-    branches:
-      - "master"
-      - "alpha"
-      - "beta"
+    branches: [main,master,dev,develop]
   pull_request:
+    branches: [main,master,dev,develop]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -16,21 +24,34 @@ jobs:
       group: vsmr-build-${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - name: Checkout Code and Submodules
-        uses: actions/checkout@v6
-        with:
-          submodules: recursive
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Run smoke tests
+        run: .\scripts\ci-smoke.ps1
+        shell: pwsh
+
+      - name: Setup MSBuild Path
+        uses: microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce
 
       # Environment things
       - name: Install VC++ 2010 Redistributables (x86 and x64)
         run: |
-          choco install vcredist2010 --yes
-          choco install vcredist2010 --x86 --yes
+          git clone https://github.com/microsoft/vcpkg.git
+          cd vcpkg
+          git checkout bdd229e13c66fa11acdc0bc8fed8e7474cd24aa5
+          .\bootstrap-vcpkg.bat
 
-      - name: Set up Visual Studio Shell
-        uses: egor-tensin/vs-shell@v2
+      - name: Restore vcpkg cache
+        uses: actions/cache@v4
         with:
-          arch: x86
+          path: |
+            vcpkg\downloads
+            vcpkg\packages
+            vcpkg\installed
+          key: ${{ runner.os }}-vcpkg-bdd229e13c66fa11acdc0bc8fed8e7474cd24aa5-x86-windows-static
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-bdd229e13c66fa11acdc0bc8fed8e7474cd24aa5-
 
       - name: Check Clang Version
         run: clang-cl --version
@@ -52,178 +73,61 @@ jobs:
           CURL_DOWNLOAD_URL: "https://github.com/curl/curl/releases/download/curl-7_76_1/curl-7.76.1.zip"
           CURL_VERSION: 7.76.1
         run: |
-          New-Item -Path "C:\\hostedtoolcache\\windows" -Name "libcurl" -ItemType "directory"
-          $WebClient = New-Object System.Net.WebClient
-          $WebClient.DownloadFile(${env:CURL_DOWNLOAD_URL}, "C:\\hostedtoolcache\\windows\\libcurl\\curl.zip")
-          Set-Location -Path "C:\\hostedtoolcache\\windows\\libcurl"
-          7z x curl.zip
-          Remove-Item curl.zip
-          Set-Location -Path "C:\\hostedtoolcache\\windows\\libcurl\\curl-${env:CURL_VERSION}\\winbuild"
-          nmake /f Makefile.vc mode=static ENABLE_SCHANNEL=yes
+          .\vcpkg\vcpkg.exe install curl[core,ssl] --triplet x86-windows-static
 
       - name: Setup cURL Environment
         env:
           CURL_VERSION: 7.76.1
         run: |
-          echo "CURL_INCLUDEDIR=C:\\hostedtoolcache\\windows\\libcurl\\curl-${env:CURL_VERSION}\\builds\\libcurl-vc-x86-release-static-ipv6-sspi-schannel\\include" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "CURL_LIBRARYDIR=C:\\hostedtoolcache\\windows\\libcurl\\curl-${env:CURL_VERSION}\\builds\\libcurl-vc-x86-release-static-ipv6-sspi-schannel\\lib" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          .\vcpkg\vcpkg.exe integrate install
 
-      # Setup all the yarn things and node modules
-      - name: Setup Yarn
-        uses: actions/setup-node@v4
-        with:
-          node-version: "16"
-
-      - name: Get Yarn Cache Directory
-        id: yarn-cache-dir-path
-        run: echo "::set-output name=dir::$(yarn cache dir)"
-
-      - name: Load Yarn Cache
-        uses: actions/cache@v5
-        id: yarn-cache
-        with:
-          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-yarn-
-
-      - name: Load Cached Node Modules
-        uses: actions/cache@v5
-        with:
-          path: "**/node_modules"
-          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/yarn.lock') }}
-
-      # Install yarn things
-      - name: Install Assets
-        run: yarn
-
-      - name: Setup Build Version
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: .\\.github\\workflows\\plugin_version.ps1
-
-      - name: Run CMake
-        env:
-          CC: clang-cl
-          CFLAGS: -m32
-          CXX: clang-cl
-          CXXFLAGS: -m32
-        run: cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -G Ninja -Bbuild
-
-      # Run the build and tests
-      - name: Run Ninja Build
-        working-directory: build
-        run: ninja
-
-      - name: Run Tests
-        working-directory: build
+      - name: Update Build Version
         run: |
-          ctest -C Release --output-on-failure --no-tests=error
+          $shortSha = $env:GITHUB_SHA.Substring(0, 7)
+          $version = if ($env:GITHUB_REF -like "refs/tags/*") {
+            $env:GITHUB_REF -replace "refs/tags/", ""
+          } else {
+            "dev-$($env:GITHUB_RUN_NUMBER)-$shortSha"
+          }
 
-      # Do Srclinting
-      - name: Get Changed Files (Src)
-        id: changed-files-src
-        uses: Ana06/get-changed-files@v2.3.0
-        with:
-          filter: |
-            src/**/*.cpp
+          (Get-Content -Path "vSMR\SMRPlugin.hpp") `
+            -replace '#define MY_PLUGIN_VERSION.*', "#define MY_PLUGIN_VERSION   `"$version`"" `
+            | Set-Content -Path "vSMR\SMRPlugin.hpp"
 
-      - name: Clang Tidy (Src)
-        continue-on-error: true # Have to as clang-tidy doesnt want to run properly on Windows
-        if: false
+          (Get-Content -Path "vSMR\vSMR.rc") `
+            -replace '@build_version', $version `
+            | Set-Content -Path "vSMR\vSMR.rc"
+        shell: pwsh
+
+      - name: Build DLL
+        run: msbuild vSMR.sln /p:Configuration=Release /p:Platform=Win32 /p:VcpkgTriplet=x86-windows-static /m
+
+      - name: Stage DLL artifact
+        id: stage_artifact
         run: |
-          if (-not ([string]::IsNullOrEmpty("${{ steps.changed-files-src.outputs.added_modified }}"))) { clang-tidy ${{ steps.changed-files-src.outputs.added_modified }} -p build }
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+
+          if ($env:GITHUB_REF -like "refs/tags/*") {
+            Copy-Item Release\vSMR.dll dist\vSMR.dll -Force
+            "artifact_name=vSMR.dll" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            "artifact_path=dist/vSMR.dll" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          } else {
+            Copy-Item Release\vSMR.dll dist\vSMR-nightly.dll -Force
+            "artifact_name=vSMR-nightly.dll" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            "artifact_path=dist/vSMR-nightly.dll" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
+        shell: pwsh
 
       # Upload artifact
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v6
         with:
-          name: vSMR.dll
-          path: 'Release\vSMR.dll'
+          name: ${{ steps.stage_artifact.outputs.artifact_name }}
+          path: ${{ steps.stage_artifact.outputs.artifact_path }}
 
-  format:
-    name: Format
-    runs-on: windows-latest
-    concurrency:
-      group: ukcp-format-${{ github.ref }}
-      cancel-in-progress: true
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
+      - name: Upload to Release
+        uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8
+        if: startsWith(github.ref, 'refs/tags/')
         with:
-          persist-credentials: false
-
-      # Environment things
-      - name: Check Clang Version
-        run: clang-cl --version
-
-      - name: Get All Changed Files
-        id: changed-files
-        uses: Ana06/get-changed-files@v2.3.0
-        with:
-          filter: |
-            src/**/*.cpp
-            src/**/*.h
-            test/**/*.cpp
-            test/**/*.h
-
-      - name: Clang Format
-        run: |
-          if (-not ([string]::IsNullOrEmpty("${{ steps.changed-files.outputs.added_modified }}"))) { clang-format --style=file --dry-run -Werror ${{ steps.changed-files.outputs.added_modified }} }
-
-  release:
-    name: Release
-    runs-on: windows-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/beta' || github.ref == 'refs/heads/alpha')
-    needs: [build, format]
-    concurrency:
-      group: ukcp-release
-      cancel-in-progress: false
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-
-      # Setup all the yarn things and node modules
-      - name: Setup Yarn
-        uses: actions/setup-node@v4
-        with:
-          node-version: "16"
-
-      - name: Get Yarn Cache Directory
-        id: yarn-cache-dir-path
-        run: echo "::set-output name=dir::$(yarn cache dir)"
-
-      - name: Load Yarn Cache
-        uses: actions/cache@v5
-        id: yarn-cache
-        with:
-          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-yarn-
-
-      - name: Load Cached Node Modules
-        uses: actions/cache@v5
-        with:
-          path: "**/node_modules"
-          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/yarn.lock') }}
-
-      # Install yarn things
-      - name: Install Assets
-        run: yarn
-
-      # Download build artifact
-      - name: Download Build Artifact
-        uses: actions/download-artifact@v7
-        with:
-          name: vSMR.dll
-          path: 'Release\vSMR.dll'
-
-      - name: Create Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT }}
-          GH_TOKEN: ${{ secrets.PAT }}
-        run: |
-          yarn semantic-release
+          files: |
+            dist/vSMR.dll

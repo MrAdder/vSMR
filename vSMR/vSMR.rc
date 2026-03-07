@@ -72,12 +72,12 @@ BEGIN
         BLOCK "040004b0"
         BEGIN
             VALUE "FileDescription", "vSMR Plugin for EuroScope"
-            VALUE "FileVersion", "@appveyor_build"
+            VALUE "FileVersion", "@build_version"
             VALUE "InternalName", "vSMR.dll"
             VALUE "LegalCopyright", "GNU GENERAL PUBLIC LICENSE"
             VALUE "OriginalFilename", "vSMR.dll"
             VALUE "ProductName", "vSMR"
-            VALUE "ProductVersion", "@appveyor_build"
+            VALUE "ProductVersion", "@build_version"
         END
     END
     BLOCK "VarFileInfo"
